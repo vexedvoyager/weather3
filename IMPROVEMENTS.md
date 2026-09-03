@@ -84,6 +84,71 @@ values look sane - before committing to a full migration.
 unverified surface area remains. Worth doing once v3.0's simpler fix is
 confirmed stable in production.
 
+### 5. Document the "CLI" naming discovery and cross-check resource
+
+**Why:** the user found https://www.clilax.com/ during research, which
+confirms "CLI" stands for NWS's official "Climatological Report" product
+- explaining exactly why Kalshi's settlement text uses identifiers like
+"CLIMDW" rather than the plain ICAO code (the exact mismatch fixed in
+`src/stations.py`). The site also independently confirms the "Local
+Standard Time climate day" settlement methodology, which matches
+`weather_day.py`'s existing DST-handling logic - good external
+validation, not something requiring a code change itself.
+
+The same operator also runs equivalent live-tracking pages for NYC and
+Chicago (`clilax.com/nyc`, `clilax.com/chicago`) - two more of the 5
+configured cities. Worth keeping as a manual cross-check resource once
+real trades start settling, and worth reviewing again once (if) the
+Herbie/GRIB2 migration (item #4) is scoped, since it describes a
+"precision ladder" of temperature data sources that may be relevant.
+
+**Proposed fix:** add a short note to `src/stations.py`'s docstring
+referencing this as the confirmed source for the "CLI" naming
+convention. Purely documentation - no logic change needed.
+
+**Priority:** low, easy. The user is adding this site to the project's
+context folder separately.
+
+### 6. Two settlement/market-type edge cases from Kalshi's official rulebook (low priority)
+
+**Why:** found while reading `Kalshi_Global_Temperature_Terms.pdf` (added
+to the project's context folder), Kalshi's own official "GLOBALTEMPERATURE"
+contract terms. Neither has caused a real problem - both are just gaps
+the bot hasn't been tested against, worth a written record rather than
+relying on memory of a PDF read once.
+
+**Gap A — a third settlement outcome the database doesn't model.**
+The rulebook states: *"If no data is available for [the time period] by
+the Expiration Date, all strikes shall resolve to the last fair price as
+determined in the sole discretion of the Exchange."* `db.py`'s
+`settle_trade()` currently only accepts `outcome` values of `'yes'`,
+`'no'`, or `'void'`. A "resolved to last fair price" settlement doesn't
+cleanly map to any of the three - it's not a win, not a loss, and not a
+stake-returned void either (it's an arbitrary exchange-determined price).
+If this ever occurs on a real trade, `settle_trade()`'s assertion would
+reject the unrecognized outcome value outright, which is a safe failure
+(loud error, not silent misclassification), but the code has no
+deliberate handling for it.
+
+**Gap B — an unsupported market type ("exactly").** The rulebook defines
+comparison operators as `<above/below/exactly/at least/between>`. Every
+real market seen so far (across all 5 cities, in live Forecast Refresh
+logs) has been `greater`/`greater_or_equal`/`less_or_equal`/`between` -
+never "exactly" (equal to a value, rounded to one decimal). `extract_threshold()`
+in `src/market_parsing.py` only recognizes the four strike types already
+observed; an "exactly" market would return `None` and be silently (and
+correctly, per the existing fail-safe design) skipped, not mispriced.
+
+**Why this is unlikely to matter:** temperature markets are inherently
+continuous-valued, and "exactly" only makes sense for something with a
+small number of discrete possible outcomes - it doesn't fit the
+above/below/between ladder structure Kalshi actually uses for weather.
+Neither gap has appeared in any real data pulled so far.
+
+**Priority:** low. Recorded for completeness, not because either is
+expected to be hit. If Gap A ever occurs, it'll surface as a loud,
+diagnosable error (per the settle_trade assertion) rather than silent
+misbehavior - consistent with this project's overall design philosophy.
 ---
 
 ## Decisions (things considered and deliberately not done)
