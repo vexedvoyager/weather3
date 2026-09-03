@@ -149,6 +149,84 @@ Neither gap has appeared in any real data pulled so far.
 expected to be hit. If Gap A ever occurs, it'll surface as a loud,
 diagnosable error (per the settle_trade assertion) rather than silent
 misbehavior - consistent with this project's overall design philosophy.
+
+### 7. Fix the 401 Unauthorized on /portfolio/positions
+
+**Why:** the first real Price Check run that actually placed trades also
+revealed a real, separate bug: `get_positions()` (used for the daily
+position-mismatch consistency check) failed with `401 Client Error:
+Unauthorized`, while `/markets` calls in the very same run, using the
+same signing code, succeeded normally. This points to a permissions/scope
+issue on the Kalshi API key itself - most likely it's currently scoped
+to market-data read access only, not portfolio access - rather than a
+bug in the RSA-PSS signing logic (which is clearly working correctly for
+other endpoints).
+
+**Why it didn't block trading:** `price_check.py` is deliberately built
+to fail safe here - a positions-fetch error is logged and treated as "no
+mismatch detected" rather than aborting the run. That's the right
+default behavior for an error, but it also means the consistency check
+is currently NOT actually able to verify anything, silently. It's
+running with zero real protection until this is fixed.
+
+**Proposed fix:** check the Kalshi account's API key settings for a
+permissions/scope option and grant portfolio/positions read access. If
+Kalshi's key model doesn't support partial scoping, this may just need
+a fresh key. Re-run Price Check afterward and confirm the error is gone
+before ever considering live mode - the consistency check is one of the
+two conditions that can trigger a same-day alert, and it needs to
+actually work for that safety net to mean anything.
+
+**Priority:** high — this is a real safety-net gap, not a cosmetic issue,
+and now that trades are actually flowing, it matters.
+
+---
+
+### 8. Watch for overconfident high-probability trades at the deployment stage
+
+**Why:** the first real batch of trades included several where the model
+expressed 95%+ confidence while buying at 1 cent (implying the market
+priced the same outcome near 0-1%) - for example Miami T87 (95.1% model
+vs ~1% market), Austin T95 (98.3% vs ~1%), and LA T72 (96.7% vs ~1%).
+This is either a genuinely rare, large mispricing, or it's the exact
+overconfidence failure pattern described in the source material's own
+post-mortem ("Confident and Wrong: Why Our Model's High-Confidence
+Trades Lost Money") - where the model's 90%+ confidence bucket was
+specifically where most of the real losses concentrated, despite the
+model looking best-calibrated in aggregate.
+
+**Not a bug, no code change proposed yet.** This is exactly what the
+self-audit Brier tracker (added this round) exists to catch once these
+specific trades settle - particularly whether the high-confidence bucket
+specifically underperforms, not just the aggregate Brier score.
+
+**Priority:** watch, don't act. Revisit once enough of these
+specific high-confidence trades have settled to say anything meaningful.
+If a pattern like the source material's does emerge, the likely fix
+would mirror theirs: a more conservative sigma_multiplier or an explicit
+confidence cap, but that's premature before real settlement data exists.
+
+---
+
+### 9. Nearly the full budget deployed in a single Price Check run
+
+**Why:** the first successful run deployed $48.42 of the $50 total
+budget in one pass - 10 trades, hitting the 2-per-city position cap on
+all 5 cities simultaneously, all priced off the same single cached
+forecast snapshot. Harmless in paper mode, but worth thinking through
+before live mode: real capital would deploy almost entirely on the
+first successful run rather than gradually over time, which may not be
+the risk profile intended.
+
+**Proposed fix (not yet decided on):** possible options include a
+per-run deployment cap (e.g. no more than $X or N trades per single
+Price Check run, even if more are eligible), or spreading eligible
+candidates across multiple runs deliberately. Needs a real decision, not
+just a default - flagging for discussion rather than proposing a
+specific fix now.
+
+**Priority:** medium - doesn't matter for paper trading, but should be
+resolved before ever switching `mode` to `"live"`.
 ---
 
 ## Decisions (things considered and deliberately not done)
