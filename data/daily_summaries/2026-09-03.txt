@@ -1,0 +1,32 @@
+=== Predict Weather Bot — Daily Summary: 2026-09-03 ===
+Mode: PAPER
+
+Scans run today: 1
+
+Markets scanned today (total across all scans): 60
+Markets that cleared all eligibility checks: 29
+Forecast cache coverage by city: Austin: 12, Chicago: 12, Los Angeles: 12, Miami: 12, New York: 12
+
+New positions opened today: 10
+  - Chicago: bought 5x NO on KXHIGHCHI-26SEP03-T95 at 85c (model said 10% chance, edge score 0.85)
+  - Chicago: bought 166x YES on KXHIGHCHI-26SEP03-T88 at 3c (model said 75% chance, edge score 0.91)
+  - New York: bought 26x YES on KXHIGHNY-26SEP03-T83 at 19c (model said 62% chance, edge score 0.90)
+  - New York: bought 7x NO on KXHIGHNY-26SEP03-B85.5 at 68c (model said 15% chance, edge score 0.72)
+  - Miami: bought 500x YES on KXHIGHMIA-26SEP03-T87 at 1c (model said 95% chance, edge score 0.72)
+  - Miami: bought 6x NO on KXHIGHMIA-26SEP03-B93.5 at 83c (model said 1% chance, edge score 0.95)
+  - Austin: bought 500x YES on KXHIGHAUS-26SEP03-T95 at 1c (model said 98% chance, edge score 0.72)
+  - Austin: bought 55x YES on KXHIGHAUS-26SEP03-T102 at 9c (model said 50% chance, edge score 0.87)
+  - Los Angeles: bought 500x YES on KXHIGHLAX-26SEP03-T72 at 1c (model said 97% chance, edge score 0.72)
+  - Los Angeles: bought 6x NO on KXHIGHLAX-26SEP03-B78.5 at 76c (model said 5% chance, edge score 0.74)
+
+Positions settled today: 0
+
+Net P&L settled today: $+0.00
+Total currently deployed (open positions): $48.42 of $50.00 budget
+Open positions right now: 10
+
+Last 14 days (daily P&L):      ▅▅▅▅▅▅▅▅▅▅▅▅▅▅
+Last 14 days (cumulative P&L): ▅▅▅▅▅▅▅▅▅▅▅▅▅▅
+  (range: $+0.00 to $+0.00 daily, cumulative now $+0.00)
+
+This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
