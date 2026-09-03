@@ -155,7 +155,12 @@ def parse_station_maxt(bulletin_text: str, station_id: str) -> dict | None:
     """
     lines = bulletin_text.splitlines()
 
-    station_pattern = re.compile(rf"^{re.escape(station_id)}\s", re.IGNORECASE)
+    # CONFIRMED against a real live bulletin (not assumed): station lines
+    # have a leading space before the station code, e.g. " KMDW    NBM
+    # V5.0 NBP GUIDANCE...". The original regex anchored the station code
+    # to the exact start of the line and would have silently failed to
+    # match every real station - allowing optional leading whitespace here.
+    station_pattern = re.compile(rf"^\s*{re.escape(station_id)}\s", re.IGNORECASE)
     station_start = None
     for i, line in enumerate(lines):
         if station_pattern.match(line):
@@ -169,7 +174,9 @@ def parse_station_maxt(bulletin_text: str, station_id: str) -> dict | None:
     # Find where the NEXT station's block begins, so we never accidentally
     # read past our station's data into the next one's. NBM station header
     # lines look like "KBWI NBM V5.0 NBP GUIDANCE 5/18/2026 1300 UTC".
-    next_station_pattern = re.compile(r"^[A-Z0-9]{3,4}\s+NBM\s+V", re.IGNORECASE)
+    # Same leading-whitespace fix as station_pattern above - confirmed
+    # against real data.
+    next_station_pattern = re.compile(r"^\s*[A-Z0-9]{3,4}\s+NBM\s+V", re.IGNORECASE)
     station_end = len(lines)
     for i in range(station_start + 1, len(lines)):
         if next_station_pattern.match(lines[i]):
