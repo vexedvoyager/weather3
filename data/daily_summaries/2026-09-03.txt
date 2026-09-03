@@ -1,10 +1,10 @@
 === Predict Weather Bot — Daily Summary: 2026-09-03 ===
 Mode: PAPER
 
-Scans run today: 1
+Scans run today: 4
 
-Markets scanned today (total across all scans): 60
-Markets that cleared all eligibility checks: 29
+Markets scanned today (total across all scans): 186
+Markets that cleared all eligibility checks: 60
 Forecast cache coverage by city: Austin: 12, Chicago: 12, Los Angeles: 12, Miami: 12, New York: 12
 
 New positions opened today: 10
