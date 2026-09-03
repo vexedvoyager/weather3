@@ -89,12 +89,18 @@ class KalshiClient:
 
     # --- Market data (read-only, safe in any mode) ---------------------------
 
-    def get_markets_by_series(self, series_ticker: str, status: str = "active") -> list[dict]:
+        def get_markets_by_series(self, series_ticker: str, status: str = "open") -> list[dict]:
         """
         Fetch open markets under a given series (e.g. weather series for one city).
-        NOTE: Kalshi's `status` values for markets are initialized/inactive/
-        active/closed/determined/disputed/amended/finalized - "active" is
-        the tradeable-now status, not "open".
+
+        CORRECTED: earlier versions used status="active", based on an
+        inferred (never independently confirmed) status enum. This
+        caused a uniform 400 Bad Request across every single city's
+        market fetch - confirmed via a real Forecast Refresh run.
+        Kalshi's own official "Quick Start: Market Data" documentation
+        (docs.kalshi.com, dated May 2026) uses status="open" in its
+        working example - that's the confirmed correct value for
+        "currently tradeable" markets.
         """
         path = "/markets"
         params = {"series_ticker": series_ticker, "status": status, "limit": 100}
