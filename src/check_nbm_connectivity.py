@@ -25,7 +25,7 @@ from src.nbm import NBM_HOST, PATH_TEMPLATES, RUN_HOURS, _candidate_runs
 logging.basicConfig(level=logging.WARNING)  # keep noise down, this script prints its own output
 
 
-def run_connectivity_check(max_candidates: int = 8, timeout: int = 15):
+def run_connectivity_check(max_candidates: int = 8, timeout: int = 15, stations_to_probe: list = None):
     now = datetime.now(timezone.utc)
     print(f"=== NBM Connectivity Check ===")
     print(f"Current time (UTC): {now.isoformat()}")
@@ -36,6 +36,8 @@ def run_connectivity_check(max_candidates: int = 8, timeout: int = 15):
 
     results = []
     checked = 0
+    first_success_text = None
+
     for run_date, run_hour in _candidate_runs(now):
         if checked >= max_candidates:
             break
@@ -53,6 +55,8 @@ def run_connectivity_check(max_candidates: int = 8, timeout: int = 15):
                     print(f"    url: {url}")
                     print(f"    first 200 chars: {resp.text[:200]!r}")
                     results.append((run_date, run_hour, idx, url, True, status, size))
+                    if first_success_text is None:
+                        first_success_text = resp.text
                 else:
                     print(f"  [template {idx}] ✗ HTTP {status}  url: {url}")
                     results.append((run_date, run_hour, idx, url, False, status, 0))
@@ -72,6 +76,27 @@ def run_connectivity_check(max_candidates: int = 8, timeout: int = 15):
         print()
         print("If template index is not 0, consider reordering PATH_TEMPLATES in "
               "src/nbm.py to put the working pattern first, for faster real fetches.")
+
+        # --- Station-format probe -------------------------------------------
+        # Confirms our actual configured stations appear in the bulletin in
+        # the format src/nbm.py's parser expects, using REAL fetched data
+        # instead of synthetic test data - the first time this has been
+        # checked against a live file.
+        if stations_to_probe:
+            print()
+            print("=== Station format probe (checking real data, not synthetic) ===")
+            for station in stations_to_probe:
+                idx = first_success_text.upper().find(f"{station.upper()} NBM")
+                if idx == -1:
+                    # Try without requiring a space right after, in case
+                    # formatting differs slightly from our assumption.
+                    idx = first_success_text.upper().find(station.upper())
+                if idx == -1:
+                    print(f"  {station}: ✗ NOT FOUND anywhere in the bulletin")
+                else:
+                    snippet = first_success_text[max(0, idx - 5):idx + 150]
+                    print(f"  {station}: found at character {idx}")
+                    print(f"    context: {snippet!r}")
         return 0
     else:
         print("✗ NO successful fetches across any candidate run or path template.")
@@ -81,4 +106,4 @@ def run_connectivity_check(max_candidates: int = 8, timeout: int = 15):
 
 
 if __name__ == "__main__":
-    sys.exit(run_connectivity_check())
+    sys.exit(run_connectivity_check(stations_to_probe=["KMDW", "KNYC", "KMIA", "KAUS", "KLAX"]))
