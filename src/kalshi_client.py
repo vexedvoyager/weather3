@@ -89,7 +89,7 @@ class KalshiClient:
 
     # --- Market data (read-only, safe in any mode) ---------------------------
 
-        def get_markets_by_series(self, series_ticker: str, status: str = "open") -> list[dict]:
+    def get_markets_by_series(self, series_ticker: str, status: str = "open") -> list[dict]:
         """
         Fetch open markets under a given series (e.g. weather series for one city).
 
