@@ -1,0 +1,22 @@
+=== Predict Weather Bot — Daily Summary: 2026-09-04 ===
+Mode: PAPER
+
+Scans run today: 0
+
+Markets scanned today (total across all scans): 0
+Markets that cleared all eligibility checks: 0
+  ⚠ Forecast cache is completely EMPTY across all cities. Price Check has nothing to compare market prices against, which fully explains zero trades regardless of how selective the thresholds are. Check the most recent Forecast Refresh run's logs.
+
+New positions opened today: 0
+
+Positions settled today: 0
+
+Net P&L settled today: $+0.00
+Total currently deployed (open positions): $48.42 of $50.00 budget
+Open positions right now: 10
+
+Last 14 days (daily P&L):      ▅▅▅▅▅▅▅▅▅▅▅▅▅▅
+Last 14 days (cumulative P&L): ▅▅▅▅▅▅▅▅▅▅▅▅▅▅
+  (range: $+0.00 to $+0.00 daily, cumulative now $+0.00)
+
+This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
