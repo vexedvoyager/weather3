@@ -99,11 +99,12 @@ def generate_summary(cfg: dict, date_str: str = None) -> str:
 
     lines.append(f"New positions opened today: {len(opened_today)}")
     for t in opened_today:
+        description = t["threshold_description"] or t["ticker"]
         lines.append(
-            f"  - {t['city']}: bought {t['count']}x {t['side'].upper()} on "
-            f"{t['ticker']} at {t['entry_price_cents']}c "
+            f"  - {t['city']}: bought {t['count']}x {t['side'].upper()} — {description} — "
+            f"at {t['entry_price_cents']}c "
             f"(model said {t['forecast_prob']*100:.0f}% chance, edge score "
-            f"{t['composite_edge_score']:.2f})"
+            f"{t['composite_edge_score']:.2f}) [{t['ticker']}]"
         )
     lines.append("")
 
@@ -113,9 +114,10 @@ def generate_summary(cfg: dict, date_str: str = None) -> str:
         pnl = t["pnl_cents"] or 0
         total_pnl += pnl
         result = "WIN" if pnl > 0 else ("LOSS" if pnl < 0 else "PUSH/VOID")
+        description = t["threshold_description"] or t["ticker"]
         lines.append(
-            f"  - {t['city']}: {t['ticker']} settled {t['outcome']} → {result} "
-            f"({pnl/100:+.2f} USD after fees)"
+            f"  - {t['city']}: {description} settled {t['outcome']} → {result} "
+            f"({pnl/100:+.2f} USD after fees) [{t['ticker']}]"
         )
     lines.append("")
     lines.append(f"Net P&L settled today: ${total_pnl/100:+.2f}")
