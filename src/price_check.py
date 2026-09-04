@@ -91,6 +91,7 @@ def run_price_check(cfg: dict):
                 continue
 
             model_prob = cached["model_prob"]
+            threshold_description = cached.get("threshold_description")
 
             try:
                 orderbook = client.get_orderbook(ticker)
@@ -148,14 +149,15 @@ def run_price_check(cfg: dict):
             db.insert_trade(
                 db_path, ticker, city, want_side, count, price_cents,
                 model_prob, scores["composite"], cfg["mode"],
+                threshold_description=threshold_description,
             )
             total_deployed += cost_cents
             trades_opened += 1
             logger.info(
                 "TRADE ticker=%s city=%s side=%s count=%d price_cents=%d "
-                "cached_model_prob=%.3f (from nbm_run=%s) edge_scores=%s mode=%s",
-                ticker, city, want_side, count, price_cents, model_prob,
-                cached["nbm_run_id"], scores, cfg["mode"],
+                "threshold=%r cached_model_prob=%.3f (from nbm_run=%s) edge_scores=%s mode=%s",
+                ticker, city, want_side, count, price_cents, threshold_description,
+                model_prob, cached["nbm_run_id"], scores, cfg["mode"],
             )
 
     db.log_scan(db_path, tickers_scanned, tickers_eligible, trades_opened, db_open, live_open)
