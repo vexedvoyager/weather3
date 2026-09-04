@@ -16,7 +16,7 @@ import sys
 
 from src import db, nbm
 from src.config import load_config, resolve_path
-from src.market_parsing import extract_threshold
+from src.market_parsing import describe_threshold, extract_threshold
 from src.probability import probability_of_exceeding, probability_within_range
 from src.scan_common import build_client
 from src.stations import verify_station
@@ -25,8 +25,22 @@ logger = logging.getLogger("forecast_refresh")
 
 
 def model_probability_for_market(threshold: dict, pct: dict, sigma_multiplier: float) -> float:
+    """
+    CORRECTED: earlier versions always computed "probability of
+    exceeding" for any single-threshold market, regardless of whether it
+    was a "greater than" or "less than" contract. That inverted the
+    model's confidence for every "less than" market - confirmed by
+    comparing real trade output against Kalshi's own settlement text,
+    which showed the model reporting e.g. 75%+ confidence on "less than
+    88" contracts where the forecast high was well above 88, when the
+    correct YES-probability for that contract is the complement.
+    """
     if threshold["kind"] == "single":
-        return probability_of_exceeding(pct, threshold["value"], sigma_multiplier)
+        p_exceeds = probability_of_exceeding(pct, threshold["value"], sigma_multiplier)
+        if threshold["direction"] == "above":
+            return p_exceeds
+        else:  # "below"
+            return round(1 - p_exceeds, 6)
     else:  # "between"
         return probability_within_range(pct, threshold["floor"], threshold["cap"], sigma_multiplier)
 
@@ -96,7 +110,8 @@ def run_forecast_refresh(cfg: dict):
             model_prob = model_probability_for_market(
                 threshold, pct, cfg["probability_model"]["sigma_multiplier"]
             )
-            db.upsert_forecast_cache(db_path, ticker, city, model_prob, run_id)
+            description = describe_threshold(threshold)
+            db.upsert_forecast_cache(db_path, ticker, city, model_prob, run_id, description)
             markets_cached += 1
 
     logger.info(
