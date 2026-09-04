@@ -1,11 +1,11 @@
 === Predict Weather Bot — Daily Summary: 2026-09-04 ===
 Mode: PAPER
 
-Scans run today: 0
+Scans run today: 2
 
-Markets scanned today (total across all scans): 0
-Markets that cleared all eligibility checks: 0
-  ⚠ Forecast cache is completely EMPTY across all cities. Price Check has nothing to compare market prices against, which fully explains zero trades regardless of how selective the thresholds are. Check the most recent Forecast Refresh run's logs.
+Markets scanned today (total across all scans): 120
+Markets that cleared all eligibility checks: 21
+Forecast cache coverage by city: Austin: 12, Chicago: 12, Los Angeles: 12, Miami: 12, New York: 12
 
 New positions opened today: 0
 
