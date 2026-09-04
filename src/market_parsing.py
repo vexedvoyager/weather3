@@ -18,9 +18,20 @@ logger = logging.getLogger(__name__)
 
 def extract_threshold(market: dict) -> dict | None:
     """
-    Returns {"kind": "single", "value": float} for greater/greater_or_equal/
-    less/less_or_equal markets, or {"kind": "between", "floor": float,
-    "cap": float} for between markets.
+    Returns {"kind": "single", "value": float, "direction": "above"|"below"}
+    for greater/greater_or_equal/less/less_or_equal markets, or
+    {"kind": "between", "floor": float, "cap": float} for between markets.
+
+    The "direction" field is critical and was MISSING in earlier versions -
+    a real, confirmed bug found by comparing actual trade output against
+    real Kalshi settlement text. Without it, callers could not distinguish
+    a "greater than X" market from a "less than X" market once this
+    function returned, and the probability calculation downstream always
+    computed "chance of exceeding X" regardless of which type of contract
+    it actually was - inverting the model's confidence for every single
+    "less than" market (e.g. reporting 75% confidence in a "less than 88"
+    contract when the model actually meant 75% chance of EXCEEDING 88,
+    i.e. only ~25% chance the "less than" contract itself resolves YES).
 
     Returns None if strike_type is missing or unrecognized - skip the
     market rather than guess.
@@ -32,12 +43,12 @@ def extract_threshold(market: dict) -> dict | None:
     if strike_type in ("greater", "greater_or_equal"):
         if floor_strike is None:
             return None
-        return {"kind": "single", "value": float(floor_strike)}
+        return {"kind": "single", "value": float(floor_strike), "direction": "above"}
 
     elif strike_type in ("less", "less_or_equal"):
         if cap_strike is None:
             return None
-        return {"kind": "single", "value": float(cap_strike)}
+        return {"kind": "single", "value": float(cap_strike), "direction": "below"}
 
     elif strike_type == "between":
         if floor_strike is None or cap_strike is None:
@@ -47,6 +58,24 @@ def extract_threshold(market: dict) -> dict | None:
     else:
         logger.debug("extract_threshold: unrecognized/missing strike_type=%r", strike_type)
         return None
+
+
+def describe_threshold(threshold: dict) -> str:
+    """
+    Converts a threshold dict into a plain-English description for
+    display in logs/summaries, e.g. "high > 95°F", "high < 88°F", or
+    "high 85-86°F" - so a daily summary or log line is readable on its
+    own, without needing to cross-reference Kalshi's settlement text
+    (which is exactly what was needed, manually, to catch the
+    above/below inversion bug this same threshold dict was involved in).
+    """
+    if threshold["kind"] == "single":
+        symbol = ">" if threshold["direction"] == "above" else "<"
+        return f"high {symbol} {threshold['value']:g}°F"
+    else:  # "between"
+        floor = threshold["floor"]
+        cap = threshold["cap"]
+        return f"high {floor:g}-{cap:g}°F"
 
 
 def build_market_snapshot(ticker: str, market: dict, orderbook: dict) -> MarketSnapshot | None:
