@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS trades (
     outcome TEXT CHECK(outcome IN ('yes', 'no', 'void', NULL)),
     pnl_cents INTEGER,
     fee_cents INTEGER DEFAULT 0,
+    threshold_description TEXT,
     opened_at TEXT NOT NULL,
     settled_at TEXT
 );
@@ -44,7 +45,8 @@ CREATE TABLE IF NOT EXISTS forecast_cache (
     city TEXT NOT NULL,
     model_prob REAL NOT NULL,
     nbm_run_id TEXT NOT NULL,
-    cached_at TEXT NOT NULL
+    cached_at TEXT NOT NULL,
+    threshold_description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS scan_log (
@@ -76,23 +78,47 @@ def init_db(db_path: str):
     with get_connection(db_path) as conn:
         conn.executescript(SCHEMA)
         conn.commit()
+        _migrate_add_missing_columns(conn)
+        conn.commit()
+
+
+def _migrate_add_missing_columns(conn):
+    """
+    Handles the case where a database created by an earlier version of
+    this code already exists on disk with an older schema - SQLite's
+    CREATE TABLE IF NOT EXISTS does nothing for a table that already
+    exists, even if new columns were added to the schema since. Without
+    this, a real live database (with real trades already in it) would
+    break the first time newer code tries to read/write a column that
+    doesn't exist yet on disk.
+    """
+    migrations = [
+        ("trades", "threshold_description", "TEXT"),
+        ("forecast_cache", "threshold_description", "TEXT"),
+    ]
+    for table, column, col_type in migrations:
+        existing_columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing_columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+            logger.info("db_migration added_column table=%s column=%s", table, column)
 
 
 def insert_trade(
     db_path: str, ticker: str, city: str, side: str, count: int,
     entry_price_cents: int, forecast_prob: float, composite_edge_score: float,
-    mode: str, status: str = "open",
+    mode: str, status: str = "open", threshold_description: str = None,
 ) -> int:
     with get_connection(db_path) as conn:
         cur = conn.execute(
             """
             INSERT INTO trades
                 (ticker, city, side, count, entry_price_cents, forecast_prob,
-                 composite_edge_score, mode, status, opened_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 composite_edge_score, mode, status, threshold_description, opened_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (ticker, city, side, count, entry_price_cents, forecast_prob,
-             composite_edge_score, mode, status, datetime.now(timezone.utc).isoformat()),
+             composite_edge_score, mode, status, threshold_description,
+             datetime.now(timezone.utc).isoformat()),
         )
         conn.commit()
         return cur.lastrowid
@@ -158,28 +184,36 @@ def daily_pnl_cents(db_path: str, date_str: str) -> int:
         return row["total"]
 
 
-def upsert_forecast_cache(db_path: str, ticker: str, city: str, model_prob: float, nbm_run_id: str):
+def upsert_forecast_cache(
+    db_path: str, ticker: str, city: str, model_prob: float, nbm_run_id: str,
+    threshold_description: str = None,
+):
     with get_connection(db_path) as conn:
         conn.execute(
             """
-            INSERT INTO forecast_cache (ticker, city, model_prob, nbm_run_id, cached_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO forecast_cache
+                (ticker, city, model_prob, nbm_run_id, cached_at, threshold_description)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(ticker) DO UPDATE SET
                 model_prob = excluded.model_prob,
                 nbm_run_id = excluded.nbm_run_id,
-                cached_at = excluded.cached_at
+                cached_at = excluded.cached_at,
+                threshold_description = excluded.threshold_description
             """,
-            (ticker, city, model_prob, nbm_run_id, datetime.now(timezone.utc).isoformat()),
+            (ticker, city, model_prob, nbm_run_id,
+             datetime.now(timezone.utc).isoformat(), threshold_description),
         )
         conn.commit()
 
 
 def get_cached_forecast(db_path: str, ticker: str, max_age_hours: float) -> dict | None:
-    """Returns {"model_prob": float, "nbm_run_id": str, "cached_at": str}
-    if a fresh-enough cached forecast exists for this ticker, else None."""
+    """Returns {"model_prob": float, "nbm_run_id": str, "cached_at": str,
+    "threshold_description": str|None} if a fresh-enough cached forecast
+    exists for this ticker, else None."""
     with get_connection(db_path) as conn:
         row = conn.execute(
-            "SELECT model_prob, nbm_run_id, cached_at FROM forecast_cache WHERE ticker = ?",
+            "SELECT model_prob, nbm_run_id, cached_at, threshold_description "
+            "FROM forecast_cache WHERE ticker = ?",
             (ticker,),
         ).fetchone()
 
@@ -191,7 +225,10 @@ def get_cached_forecast(db_path: str, ticker: str, max_age_hours: float) -> dict
     if age_hours > max_age_hours:
         return None
 
-    return {"model_prob": row["model_prob"], "nbm_run_id": row["nbm_run_id"], "cached_at": row["cached_at"]}
+    return {
+        "model_prob": row["model_prob"], "nbm_run_id": row["nbm_run_id"],
+        "cached_at": row["cached_at"], "threshold_description": row["threshold_description"],
+    }
 
 
 def clear_forecast_cache_for_city(db_path: str, city: str):
